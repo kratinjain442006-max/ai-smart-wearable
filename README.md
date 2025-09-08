@@ -8,414 +8,369 @@ AI Smart Wearable — audio + directional haptic prototype
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AI Smart Glasses Assistant — Prototype</title>
-
-  <!-- Simple polished CSS -->
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0" />
+  <title>Hear & Feel — Prototype</title>
   <style>
-    :root {
-      --bg: #f4f7fb;
-      --card: #ffffff;
-      --accent: #1f7a8c;
-      --accent-2: #2a9d8f;
-      --muted: #6b7280;
-      --danger: #e63946;
-      --success: #2ecc71;
-    }
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: Inter, "Segoe UI", Roboto, Arial; background: linear-gradient(180deg,var(--bg),#ffffff); color:#0f1724; -webkit-font-smoothing:antialiased; }
-    header { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; padding:18px 12px; text-align:center; }
-    header h1 { margin:0; font-size:20px; letter-spacing:0.2px; }
-    header p { margin:6px 0 0 0; opacity:0.95; font-size:13px; }
-
-    .container { padding:14px; max-width:920px; margin:10px auto; }
-
-    .grid { display:grid; grid-template-columns: 1fr; gap:12px; }
-    @media(min-width:900px){ .grid { grid-template-columns: 1fr 360px; } }
-
-    .card { background:var(--card); border-radius:12px; padding:12px; box-shadow: 0 6px 18px rgba(15,23,36,0.06); }
-
-    /* video area */
-    .video-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
-    video { width:100%; max-width:560px; height:auto; border-radius:8px; border:2px solid rgba(15,23,36,0.06); background:#000; }
-    .controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
-    button { border: none; padding:10px 14px; border-radius:8px; font-weight:600; cursor:pointer; }
-    button.primary { background:var(--accent); color:white; }
-    button.warn { background:var(--danger); color:white; }
-    button.ghost { background:transparent; border:1px solid rgba(15,23,36,0.06); }
-
-    /* status */
-    .status { display:flex; gap:8px; flex-direction:column; }
-    .status-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 6px; border-radius:8px; background: linear-gradient(180deg,#fff,#fbfdff); }
-    .big { font-weight:700; font-size:16px; color: #0f1724; }
-    .muted { color:var(--muted); font-size:13px; }
-
-    /* log area */
-    .log { max-height:180px; overflow:auto; font-family: monospace; font-size:13px; padding:8px; background:#0b1320; color:#e6eef6; border-radius:8px; }
-
-    .help { font-size:13px; color:var(--muted); margin-top:8px; }
-
-    footer { text-align:center; margin:18px 0; color:var(--muted); font-size:13px; }
+    body { font-family: system-ui, -apple-system, Arial; margin:0; background:#111; color:#eaeaea; display:flex; flex-direction:column; height:100vh; }
+    header { padding:10px 14px; background:#0b0b0b; display:flex; align-items:center; gap:10px; box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+    header h1 { font-size:1rem; margin:0; }
+    #main { flex:1; display:flex; gap:8px; padding:8px; box-sizing:border-box; }
+    #videoWrap { flex:1; position:relative; border-radius:10px; overflow:hidden; background:#222; display:flex; align-items:center; justify-content:center; }
+    video { width:100%; height:100%; object-fit:cover; transform: scaleX(-1); } /* mirror for natural feel */
+    canvas { position:absolute; left:0; top:0; width:100%; height:100%; pointer-events:none; }
+    aside { width:340px; max-width:40%; background:#0f1720; padding:12px; border-radius:10px; display:flex; flex-direction:column; gap:8px; }
+    button { padding:10px; border-radius:8px; border:0; background:#2563eb; color:white; font-weight:600; }
+    .small { font-size:0.9rem; opacity:0.9; }
+    .status { background:#081129; padding:8px; border-radius:8px; font-size:0.9rem; min-height:48px; }
+    label { display:flex; gap:8px; align-items:center; }
+    .row { display:flex; gap:8px; margin-top:6px; }
   </style>
 </head>
 <body>
-
   <header>
-    <h1>AI Smart Glasses Assistant</h1>
-    <p>Prototype — Camera detection + direction-aware vibration + GPS + voice help</p>
+    <h1>Hear & Feel — Hackathon Prototype</h1>
+    <div class="small">Dual-sense alerts: audio + vibration. Say "Help me" to send location.</div>
   </header>
 
-  <div class="container">
-    <div class="grid">
+  <div id="main">
+    <div id="videoWrap">
+      <video id="video" autoplay playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
 
-      <!-- LEFT: Main camera / status area -->
-      <div class="card video-wrap">
-        <video id="webcam" autoplay playsinline></video>
+    <aside>
+      <div class="status" id="status">Model not loaded.</div>
 
-        <div class="controls">
-          <button class="primary" id="startBtn">▶️ Start Detection</button>
-          <button class="ghost" id="pauseBtn">⏸ Pause</button>
-          <button class="ghost" id="snapshotBtn">📸 Snapshot</button>
-          <button class="warn" id="demoBtn">🎬 Demo Video</button>
-        </div>
+      <label><input id="toggleDetect" type="checkbox" checked> Detection enabled</label>
+      <label><input id="toggleAudio" type="checkbox" checked> Audio enabled</label>
+      <label><input id="toggleVibe" type="checkbox" checked> Vibration enabled</label>
 
-        <div class="status" style="width:100%;margin-top:8px;">
-          <div class="status-row">
-            <div><div class="muted">Detected</div><div id="detectedText" class="big">—</div></div>
-            <div><div class="muted">Direction</div><div id="directionText" class="big">—</div></div>
-          </div>
-
-          <div class="status-row" style="margin-top:8px;">
-            <div><div class="muted">Danger Level</div><div id="dangerText" class="big">—</div></div>
-            <div><div class="muted">GPS</div><div id="gpsText" class="big">Not ready</div></div>
-          </div>
-
-          <div style="margin-top:8px;">
-            <div class="muted">Live Log</div>
-            <div id="log" class="log">System ready. Press Start to begin detection...</div>
-          </div>
-
-          <div class="help">
-            Tip: For full features (vibration/GPS/voice), open this page on <strong>Chrome on Android</strong> or recent mobile Chrome. Use rear camera for best detection.
-          </div>
-        </div>
+      <div class="row">
+        <button id="startBtn">Start Camera</button>
+        <button id="stopBtn">Stop</button>
       </div>
 
-      <!-- RIGHT: Info / Settings / How to demo -->
-      <div class="card">
-        <h3 style="margin:0 0 6px 0;">Controls & Settings</h3>
-
-        <p class="muted" style="margin:6px 0 10px 0;">
-          Use Start to allow camera & mic & location. The app detects objects and speaks + vibrates. Say <em>"help"</em> to trigger emergency action (demo).
-        </p>
-
-        <div style="display:flex;flex-direction:column;gap:8px;">
-          <div class="status-row">
-            <div class="muted">Model</div>
-            <div id="modelText" class="muted">COCO-SSD (browser)</div>
-          </div>
-
-          <div class="status-row">
-            <div class="muted">Detection interval</div>
-            <div id="intervalText" class="muted">2.0s</div>
-          </div>
-
-          <div style="margin-top:10px;">
-            <h4 style="margin:6px 0;">Demo flow (for judges)</h4>
-            <ol style="padding-left:18px; margin:8px 0; color:var(--muted); font-size:14px;">
-              <li>Open link on phone Chrome → tap <b>Start</b>.</li>
-              <li>Point camera at object (chair/stairs/person/car) → app will say & vibrate.</li>
-              <li>Say "<b>help</b>" → app will announce emergency + show GPS (demo alert).</li>
-              <li>Use Snapshot for slide/video images; press Demo Video to play pre-recorded clip (offline backup).</li>
-            </ol>
-          </div>
-
-          <div style="margin-top:8px;">
-            <h4 style="margin:6px 0;">Why this stands out</h4>
-            <ul style="color:var(--muted); font-size:14px; padding-left:18px;">
-              <li>Direction-aware vibration (left/right/center)</li>
-              <li>Danger prioritization & urgent alerts</li>
-              <li>GPS & voice-to-help (emergency demo)</li>
-              <li>No backend required — runs in browser (can be hosted on GitHub Pages)</li>
-            </ul>
-          </div>
-        </div>
+      <div style="margin-top:8px;">
+        <div class="small"><strong>Detection Log</strong></div>
+        <div id="log" style="height:180px; overflow:auto; background:#061022; padding:8px; border-radius:6px; font-size:0.9rem;"></div>
       </div>
+    </aside>
+  </div>
 
-    </div> <!-- grid -->
-  </div> <!-- container -->
-
-  <footer>Made for hackathon • Use Chrome on phone for best results</footer>
-
-  <!-- TensorFlow + COCO-SSD -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <!-- TensorFlow and coco-ssd via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.13.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 
   <script>
-  // -----------------------
-  // App variables & helpers
-  // -----------------------
-  const video = document.getElementById('webcam');
-  const startBtn = document.getElementById('startBtn');
-  const pauseBtn = document.getElementById('pauseBtn');
-  const snapshotBtn = document.getElementById('snapshotBtn');
-  const demoBtn = document.getElementById('demoBtn');
-  const detectedText = document.getElementById('detectedText');
-  const directionText = document.getElementById('directionText');
-  const dangerText = document.getElementById('dangerText');
-  const gpsText = document.getElementById('gpsText');
+  // ====== Settings ======
+  const MIN_SCORE = 0.5; // confidence threshold
+  const MAX_VOICE_RATE = 1.0;
+  const DANGER_CLASSES = new Set(["car","truck","bus","bicycle","motorbike","person","chair","stairs","bench"]); // sample
+  const SUPPRESS_REPEAT_MS = 1200; // don't repeat same exact notification immediately
+
+  // ====== DOM ======
+  const video = document.getElementById('video');
+  const overlay = document.getElementById('overlay');
+  const ctx = overlay.getContext('2d');
+  const statusEl = document.getElementById('status');
   const logEl = document.getElementById('log');
-  const modelText = document.getElementById('modelText');
-  const intervalText = document.getElementById('intervalText');
+
+  const toggleDetect = document.getElementById('toggleDetect');
+  const toggleAudio = document.getElementById('toggleAudio');
+  const toggleVibe = document.getElementById('toggleVibe');
+
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
 
   let model = null;
-  let detectionInterval = null;
-  let recognition = null;
-  let isRunning = false;
+  let stream = null;
+  let detectLoop = null;
+  let lastAnnounce = 0;
+  let lastKey = null;
 
-  // danger categories
-  const safeObjects = ["chair","couch","bottle","book","potted plant","cup","cell phone"];
-  const mediumDanger = ["person","bicycle","dog","cat","motorcycle"];
-  const highDanger = ["car","bus","truck","stairs","train"];
-
-  // logging helper
-  function log(msg) {
-    const now = new Date().toLocaleTimeString();
-    logEl.textContent = [${now}] ${msg}\n + logEl.textContent;
+  // Helpful small logger
+  function addLog(s){
+    const d = new Date().toLocaleTimeString();
+    logEl.innerHTML = `<div>[${d}] ${s}</div>` + logEl.innerHTML;
   }
 
-  // vibrate helper with patterns
-  function vibratePattern(level, direction) {
-    // direction-aware patterns (we simulate using different timings)
-    // Note: real wristband would vibrate on left/right separately.
-    if (!("vibrate" in navigator)) return;
+  // Utility: speak text (audio)
+  function speak(text, urgent=false){
+    if(!toggleAudio.checked) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = urgent ? Math.max(0.9, MAX_VOICE_RATE) : 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  }
 
-    if (level === 'high') {
-      if (direction === 'left') navigator.vibrate([800,150,800]);
-      else if (direction === 'right') navigator.vibrate([300,100,300,100,900]);
-      else navigator.vibrate([1000,200,1000]);
-    } else if (level === 'medium') {
-      if (direction === 'left') navigator.vibrate([400,150,400]);
-      else if (direction === 'right') navigator.vibrate([250,100,250]);
-      else navigator.vibrate([500]);
+  // Utility: vibrate with a pattern mapped to danger and direction
+  // We'll use patterns (ms on, ms off). Phone vibration can't localize left/right,
+  // but pattern differences + short/long combination will stand in for direction.
+  function vibrateFor(level, direction){
+    if(!navigator.vibrate || !toggleVibe.checked) return;
+    // level: 'low' | 'medium' | 'high'
+    // direction: 'left' | 'right' | 'center'
+    let pattern;
+    if(level === 'high'){
+      pattern = [250,100,250]; // urgent
+    } else if(level === 'medium'){
+      pattern = [140,80,140];
     } else {
-      navigator.vibrate(200);
-    }
-  }
-
-  // speak text (cancel earlier)
-  function speak(text, urgent=false) {
-    if (!("speechSynthesis" in window)) return;
-    try {
-      window.speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      if (urgent) u.rate = 0.95;
-      window.speechSynthesis.speak(u);
-    } catch(e){ console.error(e); }
-  }
-
-  // choose highest-priority object from predictions array
-  function pickPriorityObject(predictions) {
-    if (!predictions || predictions.length === 0) return null;
-    // sort by score desc
-    predictions.sort((a,b) => b.score - a.score);
-    // iterate top predictions and pick highest danger level found
-    for (let p of predictions) {
-      const cls = p.class.toLowerCase();
-      if (highDanger.includes(cls)) return {class: cls, bbox: p.bbox, score: p.score};
-    }
-    for (let p of predictions) {
-      const cls = p.class.toLowerCase();
-      if (mediumDanger.includes(cls)) return {class: cls, bbox: p.bbox, score: p.score};
-    }
-    // else return top
-    const top = predictions[0];
-    return {class: top.class.toLowerCase(), bbox: top.bbox, score: top.score};
-  }
-
-  // detection loop
-  async function runDetection() {
-    if (!model) { log('Model not loaded yet'); return; }
-    if (!video || video.readyState < 2) { log('Video not ready'); return; }
-
-    try {
-      const predictions = await model.detect(video);
-      if (!predictions || predictions.length === 0) {
-        detectedText.textContent = '—';
-        directionText.textContent = '—';
-        dangerText.textContent = '—';
-        return;
-      }
-
-      const picked = pickPriorityObject(predictions);
-      if (!picked) return;
-
-      const obj = picked.class;
-      // bbox = [x, y, width, height]
-      const bbox = picked.bbox;
-      const xCenter = bbox[0] + bbox[2] / 2;
-      const width = video.videoWidth || video.clientWidth || 400;
-      let direction = 'center';
-      if (xCenter < width / 3) direction = 'left';
-      else if (xCenter > (2 * width) / 3) direction = 'right';
-
-      detectedText.textContent = obj;
-      directionText.textContent = direction;
-
-      // danger level
-      let level = 'safe';
-      if (highDanger.includes(obj)) level = 'high';
-      else if (mediumDanger.includes(obj)) level = 'medium';
-      dangerText.textContent = level.toUpperCase();
-
-      // speak and vibrate with priority
-      if (level === 'high') {
-        log(High danger: ${obj} (${direction}));
-        speak(Danger! ${obj} ahead on your ${direction}, true);
-        vibratePattern('high', direction);
-      } else if (level === 'medium') {
-        log(Medium: ${obj} (${direction}));
-        speak(${obj} on your ${direction});
-        vibratePattern('medium', direction);
-      } else {
-        log(Detected: ${obj} (${direction}));
-        speak(${obj} on your ${direction});
-        vibratePattern('safe', direction);
-      }
-    } catch (err) {
-      console.error(err);
-      log('Error in detect: ' + (err.message || err));
-    }
-  }
-
-  // -----------------------
-  // Initialize model & UI
-  // -----------------------
-  (async () => {
-    log('Loading model (COCO-SSD) — this may take 6–12 seconds on first load...');
-    model = await cocoSsd.load();
-    modelText.textContent = 'COCO-SSD (loaded)';
-    log('Model loaded. Ready.');
-  })();
-
-  // Start stream and detection
-  async function startAll() {
-    if (isRunning) return;
-    isRunning = true;
-    log('Requesting camera & microphone & location permissions...');
-    try {
-      // camera
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
-      video.srcObject = stream;
-      video.play();
-      // detection interval
-      detectionInterval = setInterval(runDetection, 2000);
-      intervalText.textContent = '2.0s';
-      log('Detection started.');
-      startVoiceRecognition(); // listen for "help"
-    } catch (e) {
-      log('Permission error: ' + e.message);
-      alert('Please allow camera, microphone, and location permissions in your browser settings.');
-      isRunning = false;
+      pattern = [70];
     }
 
-    // start GPS watch (update gpsText)
-    if ("geolocation" in navigator) {
-      navigator.geolocation.watchPosition(pos => {
-        gpsText.textContent = ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)};
-      }, err => {
-        log('GPS error: ' + (err.message || err.code));
-      }, { enableHighAccuracy: true, maximumAge: 3000 });
+    // Add a directional prefix/suffix so user can learn patterns:
+    if(direction === 'left'){
+      pattern = [60,30].concat(pattern);
+    } else if(direction === 'right'){
+      pattern = [30,60].concat(pattern);
     } else {
-      gpsText.textContent = 'Not available';
+      // center: no extra
     }
+    navigator.vibrate(pattern);
   }
 
-  function stopAll() {
-    if (!isRunning) return;
-    clearInterval(detectionInterval);
-    detectionInterval = null;
-    isRunning = false;
-    // stop video tracks
-    const s = video.srcObject;
-    if (s && s.getTracks) s.getTracks().forEach(t => t.stop());
-    video.srcObject = null;
-    log('Detection stopped.');
-    speak('Detection stopped');
-    stopVoiceRecognition();
+  // Determine danger level heuristically from bbox size + class
+  function mapToDanger(obj){
+    // obj has .score, .bbox = [x,y,w,h], .class
+    const area = obj.bbox[2] * obj.bbox[3];
+    let level = 'low';
+    if(obj.class && (obj.class === 'car' || obj.class === 'truck' || obj.class === 'bus' || obj.class === 'motorbike')){
+      level = 'high';
+    } else if(area > 0.15 * video.videoWidth * video.videoHeight){
+      level = 'high';
+    } else if(area > 0.05 * video.videoWidth * video.videoHeight){
+      level = 'medium';
+    }
+    return level;
   }
 
-  // Snapshot button: capture current frame and download (for PPT)
-  snapshotBtn.addEventListener('click', () => {
-    const cv = document.createElement('canvas');
-    cv.width = video.videoWidth || 640;
-    cv.height = video.videoHeight || 480;
-    const ctx = cv.getContext('2d');
-    ctx.drawImage(video, 0, 0, cv.width, cv.height);
-    const url = cv.toDataURL('image/png');
-    const a = document.createElement('a');
-    a.href = url; a.download = 'snapshot.png'; a.click();
-    log('Snapshot saved.');
-  });
+  // Decide left/center/right from bbox center relative to frame
+  function mapToDirection(obj){
+    const cx = obj.bbox[0] + obj.bbox[2]/2;
+    const rel = (cx / video.videoWidth) - 0.5; // -0.5..+0.5
+    if(rel < -0.18) return 'left';
+    if(rel > 0.18) return 'right';
+    return 'center';
+  }
 
-  // Demo button: plays a fallback recorded clip (for presentation backup)
-  demoBtn.addEventListener('click', () => {
-    // small fallback: open a short demo video in a new tab (you should replace with your own recorded demo file)
-    // For hackathon, record a short video and upload to GitHub, replace this link.
-    alert('Please keep a short demo video ready as a backup. For now, we show a message.');
-    log('Demo backup requested.');
-  });
+  // Generate a short unique key for deduplication
+  function detectionKey(obj){
+    return `${obj.class}|${Math.round(obj.bbox[0])}|${Math.round(obj.bbox[1])}|${Math.round(obj.bbox[2])}`;
+  }
 
-  startBtn.addEventListener('click', startAll);
-  pauseBtn.addEventListener('click', stopAll);
+  // Draw boxes
+  function drawDetections(dets){
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+    ctx.lineWidth = 3;
+    ctx.font = "14px system-ui";
+    dets.forEach(d=>{
+      const [x,y,w,h] = d.bbox;
+      ctx.strokeStyle = 'rgba(0,200,150,0.9)';
+      ctx.fillStyle = 'rgba(0,200,150,0.15)';
+      ctx.fillRect(x,y,w,h);
+      ctx.strokeRect(x,y,w,h);
+      const txt = `${d.class} ${(d.score*100|0)}%`;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(txt, x+4, y+16);
+    });
+    // center guide line
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(overlay.width/2, 0);
+    ctx.lineTo(overlay.width/2, overlay.height);
+    ctx.stroke();
+  }
 
-  // -----------------------
-  // Voice recognition for "help"
-  // -----------------------
-  function startVoiceRecognition() {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      log('Voice recognition not available in this browser.');
+  // Main detection loop
+  async function runDetect(){
+    if(!model || !toggleDetect.checked) return;
+    if (video.readyState < 2) {
+      setTimeout(runDetect, 200);
       return;
     }
-    const Rec = window.webkitSpeechRecognition || window.SpeechRecognition;
-    recognition = new Rec();
-    recognition.continuous = true;
-    recognition.lang = 'en-US';
-    recognition.interimResults = false;
-    recognition.onresult = (e) => {
-      const last = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
-      log('Heard: ' + last);
-      if (last.includes('help')) {
-        // demo emergency action:
-        const gps = gpsText.textContent || 'unknown';
-        speak('Help requested. Sending your location to emergency contact.');
-        alert('EMERGENCY demo: Location to share → ' + gps);
-        log('Emergency: help requested. (Demo alert shown with GPS).');
-      }
-    };
-    recognition.onerror = (err) => {
-      log('Speech recog error: ' + (err.error || err.message || err));
-    };
-    recognition.onend = () => {
-      // auto-restart if still running
-      if (isRunning) {
-        recognition.start();
-      }
-    };
-    recognition.start();
-    log('Voice recognition started (say "help")');
-  }
-
-  function stopVoiceRecognition() {
     try {
-      if (recognition) recognition.stop();
-      recognition = null;
-      log('Voice recognition stopped.');
-    } catch (e) { console.warn(e); }
+      const preds = await model.detect(video);
+      const now = Date.now();
+
+      // Filter by score
+      const good = preds.filter(p => p.score >= MIN_SCORE);
+
+      // Draw
+      drawDetections(good);
+
+      // Choose top-priority object: prefer highest danger then score
+      if(good.length){
+        // sort by danger then area then score
+        good.sort((a,b)=>{
+          const da = mapToDanger(a), db = mapToDanger(b);
+          const imp = ({low:0, medium:1, high:2});
+          if (imp[da] !== imp[db]) return imp[db]-imp[da];
+          const areaA = a.bbox[2]*a.bbox[3], areaB = b.bbox[2]*b.bbox[3];
+          if (areaA !== areaB) return areaB-areaA;
+          return b.score - a.score;
+        });
+        const top = good[0];
+        const dkey = detectionKey(top);
+
+        // Deduplicate repeated announcements quickly
+        if (dkey !== lastKey || (now - lastAnnounce) > SUPPRESS_REPEAT_MS){
+          lastKey = dkey;
+          lastAnnounce = now;
+
+          const dir = mapToDirection(top);
+          const level = mapToDanger(top);
+          const txt = `${top.class} ${Math.round(top.score*100)}% ${dir === 'center' ? 'ahead' : 'to the ' + dir}`;
+          addLog(`${txt} (level: ${level})`);
+          // Audio and vibration
+          if(toggleAudio.checked){
+            const urgent = (level === 'high');
+            speak(`${top.class} ${dir === 'center' ? 'ahead' : dir}`, urgent);
+          }
+          if(toggleVibe.checked){
+            vibrateFor(level, dir);
+          }
+        }
+      }
+    } catch(e){
+      console.error(e);
+      addLog("Detect error: " + (e.message||e));
+    } finally {
+      detectLoop = requestAnimationFrame(runDetect);
+    }
   }
 
-  // before unload: cleanup
-  window.addEventListener('beforeunload', () => { stopAll(); });
+  // Camera start/stop
+  async function startCamera(){
+    if(stream) return;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false});
+      video.srcObject = stream;
+      await video.play();
+      overlay.width = video.videoWidth;
+      overlay.height = video.videoHeight;
+      statusEl.innerText = 'Camera running. Loading model...';
+      if(!model){
+        model = await cocoSsd.load();
+        statusEl.innerText = 'Model loaded. Detecting...';
+      } else {
+        statusEl.innerText = 'Detecting...';
+      }
+      runDetect();
+      addLog('Camera started');
+    } catch(err){
+      console.error(err);
+      alert('Camera permission denied or not available. Try in Chrome on Android/iOS Safari with HTTPS.');
+      statusEl.innerText = 'Camera not available';
+    }
+  }
+
+  function stopCamera(){
+    if(stream){
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+      video.srcObject = null;
+      cancelAnimationFrame(detectLoop);
+      detectLoop = null;
+      drawDetections([]); // clear
+      statusEl.innerText = 'Stopped';
+      addLog('Camera stopped');
+    }
+  }
+
+  // ========== Voice command ("Help me") ===========
+  function setupVoiceCommands(){
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if(!SpeechRecognition){
+      addLog('Voice recognition not supported in this browser.');
+      return;
+    }
+    const recog = new SpeechRecognition();
+    recog.continuous = true;
+    recog.interimResults = false;
+    recog.lang = 'en-US';
+    recog.onresult = (ev) => {
+      const last = ev.results[ev.results.length-1];
+      const txt = last[0].transcript.trim().toLowerCase();
+      addLog('[VOICE] ' + txt);
+      if(txt.includes('help me') || txt.includes('help')){
+        triggerHelp();
+      } else if (txt.includes("what's around me") || txt.includes("what is around me")){
+        // immediate manual query
+        speak('Scanning environment. Please wait.');
+        addLog('Manual voice query triggered scanning.');
+      }
+    };
+    recog.onerror = (e)=> addLog('Voice error: '+ e.error);
+    recog.onend = ()=> {
+      // restart so continuous listening persists
+      try { recog.start(); } catch(e){}
+    };
+    try { recog.start(); addLog('Voice listening started (say "Help me")'); } catch(e){ addLog('Voice start error'); }
+  }
+
+  // Trigger help: grab GPS and POST to /help
+  async function triggerHelp(){
+    addLog('Help triggered — getting location...');
+    if(!navigator.geolocation){
+      addLog('Geolocation unavailable.');
+      speak('Unable to get location.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+      const payload = {
+        lat: pos.coords.latitude,
+        lon: pos.coords.longitude,
+        accuracy: pos.coords.accuracy,
+        ts: new Date().toISOString()
+      };
+      addLog('Location: ' + payload.lat.toFixed(5) + ',' + payload.lon.toFixed(5));
+      speak('Help message sent. Sending location to your emergency contact.');
+      // POST to server endpoint (you need to provide a backend)
+      try {
+        await fetch('/help', {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        addLog('Help POSTed to server /help');
+      } catch(e){
+        addLog('Failed to post to /help: ' + e.message);
+      }
+    }, (err)=>{
+      addLog('Geolocation error: ' + err.message);
+      speak('Unable to get location.');
+    }, { enableHighAccuracy: true, timeout: 8000 });
+  }
+
+  // ====== UI wiring ======
+  startBtn.onclick = startCamera;
+  stopBtn.onclick = stopCamera;
+
+  // Start immediately if allowed
+  window.addEventListener('load', async () => {
+    statusEl.innerText = 'Initializing...';
+    // Try to pre-load model to speed things up
+    try {
+      model = await cocoSsd.load();
+      statusEl.innerText = 'Model preloaded. Press Start Camera.';
+      addLog('Model loaded (preload).');
+    } catch(e){
+      statusEl.innerText = 'Model load failed.';
+      addLog('Model load failed: ' + e.message);
+    }
+    setupVoiceCommands();
+  });
+
+  // Prevent screen from sleeping on some browsers (optional)
+  if ('wakeLock' in navigator) {
+    let wakelock = null;
+    try {
+      navigator.wakeLock.request('screen').then(l => { wakelock = l; addLog('WakeLock active'); }).catch(()=>{});
+    } catch(e){}
+  }
 
   </script>
 </body>
