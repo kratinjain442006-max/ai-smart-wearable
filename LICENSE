@@ -19,3 +19,24 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+Replace `<your-username>` with your GitHub username and add links/images/gifs as you produce them.
+
+---
+
+## 5) Initialize Git, commit, and push (local → GitHub)
+
+If you created repo via GitHub web UI and did NOT initialize with README, follow these steps:
+
+```bash
+# from inside ai-smart-wearable/
+git init
+git add .
+git commit -m "Initial commit: project skeleton"
+# add remote (copy the URL from your GitHub repo page)
+git remote add origin https://github.com/<your-username>/ai-smart-wearable.git
+git branch -M main
+git push -u origin main
+git pull origin main --allow-unrelated-histories
+# resolve conflicts if any, then:
+git push -u origin main
