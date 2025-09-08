@@ -3,6 +3,7 @@ AI Smart Wearable — audio + directional haptic prototype
 # AI Smart Wearable — Hear & Feel
 
 **Prototype** that provides audio + direction-aware haptic alerts for visually impaired users.
+
 import { useEffect, useRef, useState } from "react";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import "@tensorflow/tfjs";
@@ -12,24 +13,11 @@ export default function App() {
   const canvasRef = useRef(null);
 
   const [model, setModel] = useState(null);
-  const [log, setLog] = useState([]);
   const [running, setRunning] = useState(false);
   const [lastPreds, setLastPreds] = useState([]);
 
-  const [settings, setSettings] = useState({
-    minScore: 0.5,
-    detectionOn: true,
-    audioOn: true,
-    vibrationOn: true,
-  });
-
-  // --- Helpers ---
-  function addLog(msg) {
-    setLog((prev) => [`${new Date().toLocaleTimeString()} — ${msg}`, ...prev]);
-  }
-
+  // ---- Helpers ----
   function speak(text, urgent = false) {
-    if (!settings.audioOn) return;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = "en-US";
@@ -39,44 +27,33 @@ export default function App() {
   }
 
   function vibrate(dir, danger) {
-    if (!settings.vibrationOn || !navigator.vibrate) return;
-    let base;
-    if (danger === "high") base = [250, 80, 250];
-    else if (danger === "medium") base = [150, 80, 150];
-    else base = [80];
-    if (dir === "left") base = [60, 40, ...base];
-    if (dir === "right") base = [40, 60, ...base];
-    navigator.vibrate(base);
+    if (!navigator.vibrate) return;
+    let pattern;
+    if (danger === "high") pattern = [400, 100, 400];
+    else if (danger === "medium") pattern = [200, 80, 200];
+    else pattern = [80];
+    if (dir === "left") pattern = [60, 40, ...pattern];
+    if (dir === "right") pattern = [40, 60, ...pattern];
+    navigator.vibrate(pattern);
   }
 
-  function bboxDirection(bbox, vw) {
+  function getDirection(bbox, vw) {
     const cx = bbox[0] + bbox[2] / 2;
     const rel = (cx / vw) - 0.5;
-    if (rel < -0.22) return "left";
-    if (rel > 0.22) return "right";
-    return "center";
+    if (rel < -0.2) return "left";
+    if (rel > 0.2) return "right";
+    return "ahead";
   }
 
-  function dangerLevel(obj, vw, vh) {
+  function getDangerLevel(obj, vw, vh) {
     const area = (obj.bbox[2] * obj.bbox[3]) / (vw * vh);
-    if (["car", "truck", "bus", "motorbike", "bicycle"].includes(obj.class))
-      return "high";
-    if (["person"].includes(obj.class) && area > 0.08) return "medium";
+    if (["car", "truck", "bus"].includes(obj.class)) return "high";
     if (area > 0.12) return "high";
     if (area > 0.05) return "medium";
     return "low";
   }
 
-  function summarize(preds, vw, vh) {
-    if (!preds.length) return "No important objects nearby.";
-    const parts = preds.map((p) => {
-      const dir = bboxDirection(p.bbox, vw);
-      return `${p.class} ${dir === "center" ? "ahead" : "to the " + dir}`;
-    });
-    return parts.join(", ");
-  }
-
-  // --- Camera + Detection ---
+  // ---- Camera ----
   async function startCamera() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -85,9 +62,8 @@ export default function App() {
       videoRef.current.srcObject = stream;
       await videoRef.current.play();
       setRunning(true);
-      addLog("Camera started");
     } catch (e) {
-      alert("Camera permission denied");
+      alert("Camera access denied");
     }
   }
 
@@ -97,13 +73,10 @@ export default function App() {
     setRunning(false);
   }
 
+  // ---- Detection ----
   async function detectFrame() {
-    if (!model || !running || !settings.detectionOn) return;
-
+    if (!model || !running) return;
     const preds = await model.detect(videoRef.current);
-    const filtered = preds.filter((p) => p.score >= settings.minScore);
-    setLastPreds(filtered);
-
     const vw = videoRef.current.videoWidth;
     const vh = videoRef.current.videoHeight;
     const ctx = canvasRef.current.getContext("2d");
@@ -111,16 +84,18 @@ export default function App() {
     canvasRef.current.height = vh;
     ctx.clearRect(0, 0, vw, vh);
 
+    const filtered = preds.filter((p) => p.score > 0.5);
+    setLastPreds(filtered);
+
     filtered.forEach((p) => {
       const [x, y, w, h] = p.bbox;
-      ctx.strokeStyle = "lime";
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = "yellow";
+      ctx.lineWidth = 2;
       ctx.strokeRect(x, y, w, h);
-      ctx.fillStyle = "white";
-      ctx.fillText(`${p.class} ${Math.round(p.score * 100)}%`, x + 4, y + 14);
 
-      const dir = bboxDirection(p.bbox, vw);
-      const danger = dangerLevel(p, vw, vh);
+      const dir = getDirection(p.bbox, vw);
+      const danger = getDangerLevel(p, vw, vh);
+
       speak(`${p.class} ${dir}`, danger === "high");
       vibrate(dir, danger);
     });
@@ -128,127 +103,71 @@ export default function App() {
     requestAnimationFrame(detectFrame);
   }
 
-  // --- Voice Commands ---
+  // ---- Voice Commands ----
   function setupVoice() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      addLog("Voice recognition not supported");
-      return;
-    }
+    if (!SR) return;
     const recog = new SR();
     recog.continuous = true;
     recog.lang = "en-US";
     recog.onresult = (e) => {
       const phrase = e.results[e.results.length - 1][0].transcript.toLowerCase();
-      addLog("Heard: " + phrase);
-      if (phrase.includes("help")) triggerHelp();
+      if (phrase.includes("help")) triggerSOS();
       if (phrase.includes("what")) {
-        const s = summarize(lastPreds, videoRef.current.videoWidth, videoRef.current.videoHeight);
-        speak(s);
+        if (lastPreds.length === 0) speak("No important objects detected");
+        else {
+          const desc = lastPreds
+            .map((p) => `${p.class} ${getDirection(p.bbox, videoRef.current.videoWidth)}`)
+            .join(", ");
+          speak(desc);
+        }
       }
     };
     recog.start();
-    addLog("Voice commands active");
   }
 
-  // --- SOS Help ---
-  function triggerHelp() {
-    addLog("🚨 SOS triggered");
+  // ---- SOS ----
+  function triggerSOS() {
     speak("Emergency help activated", true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((pos) => {
-        addLog(`Location: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+        const msg = `Location: ${pos.coords.latitude}, ${pos.coords.longitude}`;
+        console.log(msg);
+        alert(msg); // in real app → send to family via API
       });
     }
-    navigator.vibrate([400, 100, 400, 100, 600]);
+    navigator.vibrate([500, 200, 500, 200, 700]);
   }
 
-  // --- Init ---
+  // ---- Init ----
   useEffect(() => {
-    cocoSsd.load().then((m) => {
-      setModel(m);
-      addLog("Model loaded");
-    });
+    cocoSsd.load().then(setModel);
     setupVoice();
   }, []);
 
   useEffect(() => {
     if (running) detectFrame();
-  }, [running, model, settings]);
+  }, [running, model]);
 
-  // --- UI ---
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-4 font-sans">
-      <h1 className="text-xl font-bold mb-2">Hear & Feel — Assistive Prototype</h1>
+    <div className="min-h-screen bg-black text-white p-4 text-center">
+      <h1 className="text-lg font-bold mb-2">AI Smart Glasses — Prototype</h1>
 
-      <div className="relative w-full max-w-lg bg-black rounded-lg overflow-hidden">
-        <video ref={videoRef} className="w-full" muted playsInline />
+      <div className="relative w-full max-w-md mx-auto">
+        <video ref={videoRef} className="w-full rounded-lg" muted playsInline />
         <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full" />
       </div>
 
-      <div className="flex gap-2 mt-3">
-        <button
-          onClick={startCamera}
-          className="px-3 py-2 bg-blue-600 rounded-lg"
-        >
-          Start
+      <div className="mt-4 flex gap-2 justify-center">
+        <button onClick={startCamera} className="bg-green-600 px-4 py-2 rounded-lg">
+          ▶ Start
         </button>
-        <button
-          onClick={stopCamera}
-          className="px-3 py-2 bg-gray-700 rounded-lg"
-        >
-          Stop
+        <button onClick={stopCamera} className="bg-gray-700 px-4 py-2 rounded-lg">
+          ■ Stop
         </button>
-        <button
-          onClick={triggerHelp}
-          className="flex-1 px-3 py-2 bg-red-600 rounded-lg font-bold"
-        >
-          🚨 HELP ME
+        <button onClick={triggerSOS} className="bg-red-600 px-4 py-2 rounded-lg font-bold">
+          🚨 SOS
         </button>
-      </div>
-
-      <div className="mt-4 bg-gray-800 p-3 rounded-lg text-sm space-y-2">
-        <div>
-          <label>
-            Min confidence: {Math.round(settings.minScore * 100)}%
-            <input
-              type="range"
-              min="0.2"
-              max="0.9"
-              step="0.05"
-              value={settings.minScore}
-              onChange={(e) =>
-                setSettings({ ...settings, minScore: parseFloat(e.target.value) })
-              }
-            />
-          </label>
-        </div>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.audioOn}
-            onChange={(e) =>
-              setSettings({ ...settings, audioOn: e.target.checked })
-            }
-          />{" "}
-          Audio Alerts
-        </label>
-        <label>
-          <input
-            type="checkbox"
-            checked={settings.vibrationOn}
-            onChange={(e) =>
-              setSettings({ ...settings, vibrationOn: e.target.checked })
-            }
-          />{" "}
-          Vibration
-        </label>
-      </div>
-
-      <div className="mt-4 bg-gray-900 p-2 rounded-lg h-40 overflow-y-auto text-xs">
-        {log.map((l, i) => (
-          <div key={i}>{l}</div>
-        ))}
       </div>
     </div>
   );
