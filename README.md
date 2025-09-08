@@ -4,6 +4,423 @@ AI Smart Wearable — audio + directional haptic prototype
 
 **Prototype** that provides audio + direction-aware haptic alerts for visually impaired users.
 
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Smart Glasses Assistant — Prototype</title>
+
+  <!-- Simple polished CSS -->
+  <style>
+    :root {
+      --bg: #f4f7fb;
+      --card: #ffffff;
+      --accent: #1f7a8c;
+      --accent-2: #2a9d8f;
+      --muted: #6b7280;
+      --danger: #e63946;
+      --success: #2ecc71;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, "Segoe UI", Roboto, Arial; background: linear-gradient(180deg,var(--bg),#ffffff); color:#0f1724; -webkit-font-smoothing:antialiased; }
+    header { background: linear-gradient(135deg,var(--accent),var(--accent-2)); color:white; padding:18px 12px; text-align:center; }
+    header h1 { margin:0; font-size:20px; letter-spacing:0.2px; }
+    header p { margin:6px 0 0 0; opacity:0.95; font-size:13px; }
+
+    .container { padding:14px; max-width:920px; margin:10px auto; }
+
+    .grid { display:grid; grid-template-columns: 1fr; gap:12px; }
+    @media(min-width:900px){ .grid { grid-template-columns: 1fr 360px; } }
+
+    .card { background:var(--card); border-radius:12px; padding:12px; box-shadow: 0 6px 18px rgba(15,23,36,0.06); }
+
+    /* video area */
+    .video-wrap { display:flex; flex-direction:column; align-items:center; gap:8px; }
+    video { width:100%; max-width:560px; height:auto; border-radius:8px; border:2px solid rgba(15,23,36,0.06); background:#000; }
+    .controls { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px; }
+    button { border: none; padding:10px 14px; border-radius:8px; font-weight:600; cursor:pointer; }
+    button.primary { background:var(--accent); color:white; }
+    button.warn { background:var(--danger); color:white; }
+    button.ghost { background:transparent; border:1px solid rgba(15,23,36,0.06); }
+
+    /* status */
+    .status { display:flex; gap:8px; flex-direction:column; }
+    .status-row { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:8px 6px; border-radius:8px; background: linear-gradient(180deg,#fff,#fbfdff); }
+    .big { font-weight:700; font-size:16px; color: #0f1724; }
+    .muted { color:var(--muted); font-size:13px; }
+
+    /* log area */
+    .log { max-height:180px; overflow:auto; font-family: monospace; font-size:13px; padding:8px; background:#0b1320; color:#e6eef6; border-radius:8px; }
+
+    .help { font-size:13px; color:var(--muted); margin-top:8px; }
+
+    footer { text-align:center; margin:18px 0; color:var(--muted); font-size:13px; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>AI Smart Glasses Assistant</h1>
+    <p>Prototype — Camera detection + direction-aware vibration + GPS + voice help</p>
+  </header>
+
+  <div class="container">
+    <div class="grid">
+
+      <!-- LEFT: Main camera / status area -->
+      <div class="card video-wrap">
+        <video id="webcam" autoplay playsinline></video>
+
+        <div class="controls">
+          <button class="primary" id="startBtn">▶️ Start Detection</button>
+          <button class="ghost" id="pauseBtn">⏸ Pause</button>
+          <button class="ghost" id="snapshotBtn">📸 Snapshot</button>
+          <button class="warn" id="demoBtn">🎬 Demo Video</button>
+        </div>
+
+        <div class="status" style="width:100%;margin-top:8px;">
+          <div class="status-row">
+            <div><div class="muted">Detected</div><div id="detectedText" class="big">—</div></div>
+            <div><div class="muted">Direction</div><div id="directionText" class="big">—</div></div>
+          </div>
+
+          <div class="status-row" style="margin-top:8px;">
+            <div><div class="muted">Danger Level</div><div id="dangerText" class="big">—</div></div>
+            <div><div class="muted">GPS</div><div id="gpsText" class="big">Not ready</div></div>
+          </div>
+
+          <div style="margin-top:8px;">
+            <div class="muted">Live Log</div>
+            <div id="log" class="log">System ready. Press Start to begin detection...</div>
+          </div>
+
+          <div class="help">
+            Tip: For full features (vibration/GPS/voice), open this page on <strong>Chrome on Android</strong> or recent mobile Chrome. Use rear camera for best detection.
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Info / Settings / How to demo -->
+      <div class="card">
+        <h3 style="margin:0 0 6px 0;">Controls & Settings</h3>
+
+        <p class="muted" style="margin:6px 0 10px 0;">
+          Use Start to allow camera & mic & location. The app detects objects and speaks + vibrates. Say <em>"help"</em> to trigger emergency action (demo).
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="status-row">
+            <div class="muted">Model</div>
+            <div id="modelText" class="muted">COCO-SSD (browser)</div>
+          </div>
+
+          <div class="status-row">
+            <div class="muted">Detection interval</div>
+            <div id="intervalText" class="muted">2.0s</div>
+          </div>
+
+          <div style="margin-top:10px;">
+            <h4 style="margin:6px 0;">Demo flow (for judges)</h4>
+            <ol style="padding-left:18px; margin:8px 0; color:var(--muted); font-size:14px;">
+              <li>Open link on phone Chrome → tap <b>Start</b>.</li>
+              <li>Point camera at object (chair/stairs/person/car) → app will say & vibrate.</li>
+              <li>Say "<b>help</b>" → app will announce emergency + show GPS (demo alert).</li>
+              <li>Use Snapshot for slide/video images; press Demo Video to play pre-recorded clip (offline backup).</li>
+            </ol>
+          </div>
+
+          <div style="margin-top:8px;">
+            <h4 style="margin:6px 0;">Why this stands out</h4>
+            <ul style="color:var(--muted); font-size:14px; padding-left:18px;">
+              <li>Direction-aware vibration (left/right/center)</li>
+              <li>Danger prioritization & urgent alerts</li>
+              <li>GPS & voice-to-help (emergency demo)</li>
+              <li>No backend required — runs in browser (can be hosted on GitHub Pages)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div> <!-- grid -->
+  </div> <!-- container -->
+
+  <footer>Made for hackathon • Use Chrome on phone for best results</footer>
+
+  <!-- TensorFlow + COCO-SSD -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+
+  <script>
+  // -----------------------
+  // App variables & helpers
+  // -----------------------
+  const video = document.getElementById('webcam');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const snapshotBtn = document.getElementById('snapshotBtn');
+  const demoBtn = document.getElementById('demoBtn');
+  const detectedText = document.getElementById('detectedText');
+  const directionText = document.getElementById('directionText');
+  const dangerText = document.getElementById('dangerText');
+  const gpsText = document.getElementById('gpsText');
+  const logEl = document.getElementById('log');
+  const modelText = document.getElementById('modelText');
+  const intervalText = document.getElementById('intervalText');
+
+  let model = null;
+  let detectionInterval = null;
+  let recognition = null;
+  let isRunning = false;
+
+  // danger categories
+  const safeObjects = ["chair","couch","bottle","book","potted plant","cup","cell phone"];
+  const mediumDanger = ["person","bicycle","dog","cat","motorcycle"];
+  const highDanger = ["car","bus","truck","stairs","train"];
+
+  // logging helper
+  function log(msg) {
+    const now = new Date().toLocaleTimeString();
+    logEl.textContent = [${now}] ${msg}\n + logEl.textContent;
+  }
+
+  // vibrate helper with patterns
+  function vibratePattern(level, direction) {
+    // direction-aware patterns (we simulate using different timings)
+    // Note: real wristband would vibrate on left/right separately.
+    if (!("vibrate" in navigator)) return;
+
+    if (level === 'high') {
+      if (direction === 'left') navigator.vibrate([800,150,800]);
+      else if (direction === 'right') navigator.vibrate([300,100,300,100,900]);
+      else navigator.vibrate([1000,200,1000]);
+    } else if (level === 'medium') {
+      if (direction === 'left') navigator.vibrate([400,150,400]);
+      else if (direction === 'right') navigator.vibrate([250,100,250]);
+      else navigator.vibrate([500]);
+    } else {
+      navigator.vibrate(200);
+    }
+  }
+
+  // speak text (cancel earlier)
+  function speak(text, urgent=false) {
+    if (!("speechSynthesis" in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (urgent) u.rate = 0.95;
+      window.speechSynthesis.speak(u);
+    } catch(e){ console.error(e); }
+  }
+
+  // choose highest-priority object from predictions array
+  function pickPriorityObject(predictions) {
+    if (!predictions || predictions.length === 0) return null;
+    // sort by score desc
+    predictions.sort((a,b) => b.score - a.score);
+    // iterate top predictions and pick highest danger level found
+    for (let p of predictions) {
+      const cls = p.class.toLowerCase();
+      if (highDanger.includes(cls)) return {class: cls, bbox: p.bbox, score: p.score};
+    }
+    for (let p of predictions) {
+      const cls = p.class.toLowerCase();
+      if (mediumDanger.includes(cls)) return {class: cls, bbox: p.bbox, score: p.score};
+    }
+    // else return top
+    const top = predictions[0];
+    return {class: top.class.toLowerCase(), bbox: top.bbox, score: top.score};
+  }
+
+  // detection loop
+  async function runDetection() {
+    if (!model) { log('Model not loaded yet'); return; }
+    if (!video || video.readyState < 2) { log('Video not ready'); return; }
+
+    try {
+      const predictions = await model.detect(video);
+      if (!predictions || predictions.length === 0) {
+        detectedText.textContent = '—';
+        directionText.textContent = '—';
+        dangerText.textContent = '—';
+        return;
+      }
+
+      const picked = pickPriorityObject(predictions);
+      if (!picked) return;
+
+      const obj = picked.class;
+      // bbox = [x, y, width, height]
+      const bbox = picked.bbox;
+      const xCenter = bbox[0] + bbox[2] / 2;
+      const width = video.videoWidth || video.clientWidth || 400;
+      let direction = 'center';
+      if (xCenter < width / 3) direction = 'left';
+      else if (xCenter > (2 * width) / 3) direction = 'right';
+
+      detectedText.textContent = obj;
+      directionText.textContent = direction;
+
+      // danger level
+      let level = 'safe';
+      if (highDanger.includes(obj)) level = 'high';
+      else if (mediumDanger.includes(obj)) level = 'medium';
+      dangerText.textContent = level.toUpperCase();
+
+      // speak and vibrate with priority
+      if (level === 'high') {
+        log(High danger: ${obj} (${direction}));
+        speak(Danger! ${obj} ahead on your ${direction}, true);
+        vibratePattern('high', direction);
+      } else if (level === 'medium') {
+        log(Medium: ${obj} (${direction}));
+        speak(${obj} on your ${direction});
+        vibratePattern('medium', direction);
+      } else {
+        log(Detected: ${obj} (${direction}));
+        speak(${obj} on your ${direction});
+        vibratePattern('safe', direction);
+      }
+    } catch (err) {
+      console.error(err);
+      log('Error in detect: ' + (err.message || err));
+    }
+  }
+
+  // -----------------------
+  // Initialize model & UI
+  // -----------------------
+  (async () => {
+    log('Loading model (COCO-SSD) — this may take 6–12 seconds on first load...');
+    model = await cocoSsd.load();
+    modelText.textContent = 'COCO-SSD (loaded)';
+    log('Model loaded. Ready.');
+  })();
+
+  // Start stream and detection
+  async function startAll() {
+    if (isRunning) return;
+    isRunning = true;
+    log('Requesting camera & microphone & location permissions...');
+    try {
+      // camera
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: true });
+      video.srcObject = stream;
+      video.play();
+      // detection interval
+      detectionInterval = setInterval(runDetection, 2000);
+      intervalText.textContent = '2.0s';
+      log('Detection started.');
+      startVoiceRecognition(); // listen for "help"
+    } catch (e) {
+      log('Permission error: ' + e.message);
+      alert('Please allow camera, microphone, and location permissions in your browser settings.');
+      isRunning = false;
+    }
+
+    // start GPS watch (update gpsText)
+    if ("geolocation" in navigator) {
+      navigator.geolocation.watchPosition(pos => {
+        gpsText.textContent = ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)};
+      }, err => {
+        log('GPS error: ' + (err.message || err.code));
+      }, { enableHighAccuracy: true, maximumAge: 3000 });
+    } else {
+      gpsText.textContent = 'Not available';
+    }
+  }
+
+  function stopAll() {
+    if (!isRunning) return;
+    clearInterval(detectionInterval);
+    detectionInterval = null;
+    isRunning = false;
+    // stop video tracks
+    const s = video.srcObject;
+    if (s && s.getTracks) s.getTracks().forEach(t => t.stop());
+    video.srcObject = null;
+    log('Detection stopped.');
+    speak('Detection stopped');
+    stopVoiceRecognition();
+  }
+
+  // Snapshot button: capture current frame and download (for PPT)
+  snapshotBtn.addEventListener('click', () => {
+    const cv = document.createElement('canvas');
+    cv.width = video.videoWidth || 640;
+    cv.height = video.videoHeight || 480;
+    const ctx = cv.getContext('2d');
+    ctx.drawImage(video, 0, 0, cv.width, cv.height);
+    const url = cv.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url; a.download = 'snapshot.png'; a.click();
+    log('Snapshot saved.');
+  });
+
+  // Demo button: plays a fallback recorded clip (for presentation backup)
+  demoBtn.addEventListener('click', () => {
+    // small fallback: open a short demo video in a new tab (you should replace with your own recorded demo file)
+    // For hackathon, record a short video and upload to GitHub, replace this link.
+    alert('Please keep a short demo video ready as a backup. For now, we show a message.');
+    log('Demo backup requested.');
+  });
+
+  startBtn.addEventListener('click', startAll);
+  pauseBtn.addEventListener('click', stopAll);
+
+  // -----------------------
+  // Voice recognition for "help"
+  // -----------------------
+  function startVoiceRecognition() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      log('Voice recognition not available in this browser.');
+      return;
+    }
+    const Rec = window.webkitSpeechRecognition || window.SpeechRecognition;
+    recognition = new Rec();
+    recognition.continuous = true;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.onresult = (e) => {
+      const last = e.results[e.results.length-1][0].transcript.trim().toLowerCase();
+      log('Heard: ' + last);
+      if (last.includes('help')) {
+        // demo emergency action:
+        const gps = gpsText.textContent || 'unknown';
+        speak('Help requested. Sending your location to emergency contact.');
+        alert('EMERGENCY demo: Location to share → ' + gps);
+        log('Emergency: help requested. (Demo alert shown with GPS).');
+      }
+    };
+    recognition.onerror = (err) => {
+      log('Speech recog error: ' + (err.error || err.message || err));
+    };
+    recognition.onend = () => {
+      // auto-restart if still running
+      if (isRunning) {
+        recognition.start();
+      }
+    };
+    recognition.start();
+    log('Voice recognition started (say "help")');
+  }
+
+  function stopVoiceRecognition() {
+    try {
+      if (recognition) recognition.stop();
+      recognition = null;
+      log('Voice recognition stopped.');
+    } catch (e) { console.warn(e); }
+  }
+
+  // before unload: cleanup
+  window.addEventListener('beforeunload', () => { stopAll(); });
+
+  </script>
+</body>
+</html>
+
 ## Demo
 Short demo: (add GIF or link to demo video)
 
