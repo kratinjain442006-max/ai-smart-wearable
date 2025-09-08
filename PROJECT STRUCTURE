@@ -1,0 +1,50 @@
+mkdir ai-smart-wearable
+cd ai-smart-wearable
+
+# Create folders
+mkdir -p detection esp32 assets
+
+# Create files (empty placeholders)
+touch detection/app.py detection/detector.py detection/utils.py detection/requirements.txt
+touch esp32/vib_wristband.ino
+touch README.md LICENSE .gitignore
+
+# Create a quick .gitignore
+cat > .gitignore <<'EOF'
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+*.egg-info/
+# IDEs
+.vscode/
+.idea/
+# OS
+.DS_Store
+# Arduino/platformio builds
+/.pio
+/build/
+EOF
+mkdir ai-smart-wearable
+cd ai-smart-wearable
+mkdir detection, esp32, assets
+ni detection\app.py, detection\detector.py, detection\utils.py, detection\requirements.txt -Force
+ni esp32\vib_wristband.ino, README.md, LICENSE, .gitignore -Force
+
+Set-Content .gitignore -Value @"
+# Python
+venv/
+__pycache__/
+*.pyc
+.env
+*.egg-info/
+# IDEs
+.vscode/
+.idea/
+# OS
+.DS_Store
+# Arduino/platformio builds
+/.pio
+/build/
+"@
