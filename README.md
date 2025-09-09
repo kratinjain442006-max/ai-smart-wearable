@@ -17,7 +17,7 @@ export default function App() {
   const [log, setLog] = useState([]);
   const { speak } = useSpeechSynthesis();
 
-  // Track last spoken objects (avoid repetition)
+  // Store last spoken objects with timestamp
   const lastSpoken = useRef({});
   const COOLDOWN_MS = 5000; // 5 sec
 
@@ -38,7 +38,7 @@ export default function App() {
     tracks.forEach((track) => track.stop());
   };
 
-  // Get Direction of Object
+  // Direction based on object position
   const getDirection = (bbox, vw) => {
     const [x, , w] = bbox;
     const centerX = x + w / 2;
@@ -47,7 +47,7 @@ export default function App() {
     return "ahead";
   };
 
-  // Get Danger Level (size = closeness)
+  // Danger level based on size
   const getDangerLevel = (p, vw, vh) => {
     const [x, y, w, h] = p.bbox;
     const area = (w * h) / (vw * vh);
@@ -56,7 +56,7 @@ export default function App() {
     return "low";
   };
 
-  // Speak & Vibrate
+  // Speak & Vibrate with Cooldown
   const speakAndVibrate = (msg, dir, danger, obj) => {
     const now = Date.now();
     if (!lastSpoken.current[obj] || now - lastSpoken.current[obj] > COOLDOWN_MS) {
@@ -67,7 +67,7 @@ export default function App() {
     }
   };
 
-  // Vibration Feedback
+  // Vibration patterns
   const vibrate = (dir, danger) => {
     if (!navigator.vibrate) return;
     let pattern;
@@ -93,6 +93,8 @@ export default function App() {
     canvasRef.current.height = vh;
     ctx.clearRect(0, 0, vw, vh);
 
+    let spokenObjects = [];
+
     preds
       .filter((p) => p.score > 0.6)
       .forEach((p) => {
@@ -107,26 +109,23 @@ export default function App() {
         const danger = getDangerLevel(p, vw, vh);
         const msg = `${p.class} ${dir}`;
 
-        speakAndVibrate(msg, dir, danger, p.class);
+        spokenObjects.push({ msg, dir, danger, obj: p.class });
       });
+
+    // Speak summary only once for different objects
+    if (spokenObjects.length > 0) {
+      spokenObjects.forEach((o) => {
+        speakAndVibrate(o.msg, o.dir, o.danger, o.obj);
+      });
+    }
 
     requestAnimationFrame(detectFrame);
   };
 
-  // SOS Emergency
+  // SOS
   const sendSOS = () => {
     speak({ text: "Emergency help requested. Sending location." });
     alert("🚨 SOS sent with location!");
-  };
-
-  // Voice Command Simulation
-  const handleVoiceCommand = (cmd) => {
-    if (cmd.toLowerCase().includes("around")) {
-      speak({ text: "Scanning surroundings" });
-      if (log.length > 0) speak({ text: log.slice(-3).join(", ") });
-    } else if (cmd.toLowerCase().includes("help")) {
-      sendSOS();
-    }
   };
 
   return (
@@ -143,15 +142,6 @@ export default function App() {
         <button onClick={sendSOS} className="bg-red-600 px-4 py-2 rounded-lg">🚨 SOS</button>
       </div>
 
-      <div className="mt-4 space-x-2">
-        <button onClick={() => handleVoiceCommand("what's around me")} className="bg-blue-500 px-4 py-2 rounded-lg">
-          "What's around me?"
-        </button>
-        <button onClick={() => handleVoiceCommand("help me")} className="bg-pink-500 px-4 py-2 rounded-lg">
-          "Help me"
-        </button>
-      </div>
-
       <div className="mt-4 w-full max-w-md bg-gray-800 p-3 rounded-xl h-40 overflow-y-scroll text-sm">
         {log.map((entry, i) => (
           <p key={i}>{entry}</p>
@@ -160,12 +150,6 @@ export default function App() {
     </div>
   );
 }
-
-
-
-
-
-
 
 
 ## Demo
